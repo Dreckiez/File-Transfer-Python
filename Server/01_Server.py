@@ -21,6 +21,7 @@ def read_file(fileName):
 
 def send_file(fileName):
     data = read_file_in_binary(fileName)
+    data += b'<ENDF>'
     Client.sendall(data)
 
 def create_allow_list():
@@ -28,6 +29,20 @@ def create_allow_list():
     for line in file:
         allowed_list.append(line.rstrip('\n'))
     file.close()
+
+def Receive(sock, buffer):
+    data = b''
+    check_len = 0
+    while check_len < buffer:
+        chunk = sock.recv(buffer)
+        if chunk[-5:] == b"<END>":
+            chunk = chunk[:len(chunk) - 5]
+            data += chunk
+            break
+        else:
+            check_len += len(chunk)
+            data += chunk
+    return data
 
 Server_IP = "0.0.0.0"
 Server_Port = 9999
@@ -55,7 +70,7 @@ while True:
         print("Client connect from [%s:%s]\n" %Client_Add)
 
         
-        Client.send(alist.join(allowed_list).encode('latin-1'))
+        Client.send((alist.join(allowed_list)+"<END>").encode('latin-1'))
 
         print("Allowed to Download files:")
         print_list(allowed_list)
@@ -64,8 +79,8 @@ while True:
         #HANDLE A CLIENT
         done = False
         while not done:
-            file_name = Client.recv(1024).decode('latin-1')
-            if not file_name:
+            file_name = Receive(Client, 1024).decode('latin-1')
+            if not file_name or file_name == "<BYE>":
                 done = True
             else:
                 print("[Client] requesting " + file_name)
@@ -74,8 +89,8 @@ while True:
             os.chdir(path)
 
             file_size = str(os.path.getsize(file_name))
+            Client.send((file_size+"<END>").encode('latin-1'))
 
-            Client.send((file_name+' '+file_size).encode('latin-1'))
             print("Sending " + file_name + '\n')              
             send_file(file_name)
             

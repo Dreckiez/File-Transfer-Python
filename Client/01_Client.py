@@ -47,13 +47,10 @@ def create_request_list(fileName):
     file.close()
 
 def string_handle(line):
-    fn = ''
-    fs = ''
-    i = line.rfind(' ', 0, len(line))
+    i = line.find('/', 0, len(line))
     
-    fn = line[0:i]
     fs = line[i+1:]
-    return fn,fs
+    return int(fs)
 
 def receive_file(fileName, file_size):
     interval = time.time()
@@ -64,7 +61,9 @@ def receive_file(fileName, file_size):
 
     while bytes_num < file_size:
         datachunk = Client.recv(1024)
-        if not datachunk:
+        if datachunk[-5:] == b"<END>":
+            datachunk = datachunk[:len(datachunk) - 5]
+            f.write(datachunk)
             break
         else:
             f.write(datachunk)
@@ -73,16 +72,30 @@ def receive_file(fileName, file_size):
             percentage = round((bytes_num*100)/file_size)
             if check - interval >= 5:
                 interval = check
-                print("\033[1A\033[KDownloading " + file_name + " .... " + str(percentage) + "%")
+                print("\033[1A\033[KDownloading " + fileName + " .... " + str(percentage) + "%")
     # end = time.time()
     f.close()
     print("\033[1A\033[KDownload " + fileName + " Completed\n")
     # print("Total time: ", str(end - start))
 
+def Receive(sock, buffer):
+    data = b''
+    check_len = 0
+    while check_len < buffer:
+        chunk = sock.recv(buffer)
+        if chunk[-5:] == b"<END>":
+            chunk = chunk[:len(chunk) - 5]
+            data += chunk
+            break
+        else:
+            check_len += len(chunk)
+            data += chunk
+    return data
+
 directory = "output"
 cwd = os.getcwd()
 path = os.path.join(cwd, directory)
-Server_IP = "192.168.1.39" # Change to Server IP
+Server_IP = "10.126.6.103" # Change to Server IP
 Server_Port = 9999
 file_content = read_file("input.txt")
 downloaded = []
@@ -91,7 +104,7 @@ Client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 Client.connect((Server_IP, Server_Port))
 Server_Addr = socket.socket.getsockname(Client)
 print("Connect to [%s:%s]\n" %Server_Addr)
-alist = Client.recv(1024).decode('latin-1')
+alist = Receive(Client, 1024).decode('latin-1')
 allowed_list = list(alist.split('/'))
 print("Allowed to Download files:")
 print_list(allowed_list)
@@ -106,7 +119,7 @@ while True:
                 print_list(request_list)
 
             for file in request_list:
-                Client.send(file.encode('latin-1'))
+                Client.send((file+"<END>").encode('latin-1'))
     
                 try:
                     os.mkdir(path)
@@ -115,15 +128,16 @@ while True:
 
                 os.chdir(path)
 
-                tmp = Client.recv(1024).decode('latin-1')
-                file_name, file_size =  string_handle(tmp)
-                print("Starting to download", file_name)
+                tmp = Receive(Client, 1024).decode('latin-1')
+                file_size =  string_handle(tmp)
+                print("Starting to download", file)
                 
-                receive_file(file_name, int(float(file_size)))
+                receive_file(file, int(float(file_size)))
 
                 os.chdir(cwd)
 
     except KeyboardInterrupt:
+        Client.send("<BYE><END>".encode('latin-1'))
         break
 print("\nDisconnected from Server")
 Client.close()

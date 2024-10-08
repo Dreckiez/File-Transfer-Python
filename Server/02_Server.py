@@ -68,7 +68,7 @@ def handle_client(sock, request_dict, client_addr):
 
             os.chdir(path)
             file_size = str(os.path.getsize(file_name))
-            sock.send((file_name+'/'+file_size).encode('latin-1'))
+            sock.send(file_size.encode('latin-1'))
 
             if file_name in request_dict:
                 f_pos = request_dict[file_name]
@@ -96,6 +96,7 @@ def handle_client(sock, request_dict, client_addr):
                 os.chdir(cwd)
                 if data:
                     sock.send(data)
+                    print("SENT")
                 else:
                     sock.send("<END>".encode('latin-1'))
 
