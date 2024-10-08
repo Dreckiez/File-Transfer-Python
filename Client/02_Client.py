@@ -58,7 +58,9 @@ def Receive(sock, buffer):
     check_len = 0
     while check_len < buffer:
         chunk = sock.recv(buffer)
-        if not chunk:
+        if chunk[-5:] == b"<END>":
+            chunk = chunk[:len(chunk) - 5]
+            data += chunk
             break
         else:
             check_len += len(chunk)
@@ -74,11 +76,11 @@ def init_connect(sock, run_event):
                 for name in list(request_dict.keys()):
                     os.chdir(path)
 
-                    sock.send((name+'/'+request_dict[name]).encode('latin-1'))
-                    ans = sock.recv(1024).decode('latin-1')
+                    sock.send((name+'/'+request_dict[name]+"<END>").encode('latin-1'))
+                    ans = Receive(sock, 1024).decode('latin-1')
                     file_size = string_handle(ans)
 
-                    sock.send("OK".encode('latin-1'))
+                    sock.send("OK<END>".encode('latin-1'))
 
                     if request_dict[name] == "CRITICAL":
                         data_chunk = Receive(sock, 536870912)
@@ -87,7 +89,7 @@ def init_connect(sock, run_event):
                     elif request_dict[name] == "NORMAL":
                         data_chunk = Receive(sock, 8388608)
 
-                    if data_chunk == b"<END>":
+                    if data_chunk[-6:] == b"<DONE>":
                         progress_dict[name] = f"Download {name} Completed"
                         # print("Download %s Completed\n" %name)
                         del request_dict[name]
@@ -115,7 +117,7 @@ directory = "output"
 cwd = os.getcwd()
 request_file_path = os.path.join(cwd, "input.txt")
 path = os.path.join(cwd, directory)
-Server_IP = "192.168.1.39" # Change it to the Server IP
+Server_IP = "10.126.6.103" # Change it to the Server IP
 Server_Port = 9999
 file_content = read_file("input.txt")
 request_dict = {}
@@ -133,7 +135,7 @@ try:
 except OSError:
     pass
 
-alist = Client.recv(1024).decode('latin-1')
+alist = Receive(Client, 1024).decode('latin-1')
 allowed_list = list(alist.split('/'))
 print("Allowed to Download files:")
 print_list(allowed_list)
@@ -147,6 +149,7 @@ try:
     while True:
         time.sleep(1)
 except KeyboardInterrupt:
+    Client.send("<BYE><END>".encode('latin-1'))
     run_event.clear()
     Connect_Thread.join()
 

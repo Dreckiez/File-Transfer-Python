@@ -35,7 +35,9 @@ def Receive(sock, buffer):
     check_len = 0
     while check_len < buffer:
         chunk = sock.recv(buffer)
-        if not chunk:
+        if chunk[-5:] == b"<END>":
+            chunk = chunk[:len(chunk) - 5]
+            data += chunk
             break
         else:
             check_len += len(chunk)
@@ -50,7 +52,7 @@ def accept_connections():
         try:
             request_dict = {}
             print("Client connect from [%s:%s]" %Client_Add)
-            Client.send(alist.join(allowed_list).encode('latin-1'))
+            Client.send((alist.join(allowed_list)+"<END>").encode('latin-1'))
             CThread = threading.Thread(target = handle_client, args = (Client,request_dict,Client_Add,))
             CThread.start()
         except not CThread.is_alive():
@@ -62,13 +64,15 @@ def accept_connections():
 def handle_client(sock, request_dict, client_addr):
     while True:
         try:
-            request = sock.recv(1024).decode('latin-1')
+            request = Receive(sock, 1024).decode('latin-1')
+            if request[-5:] == "<BYE>":
+                raise ValueError
             file_name, prio = string_handle(request)
             print("[%s] requesting %s - %s" %(client_addr, file_name, prio))
 
             os.chdir(path)
             file_size = str(os.path.getsize(file_name))
-            sock.send(file_size.encode('latin-1'))
+            sock.send((file_size+"<END>").encode('latin-1'))
 
             if file_name in request_dict:
                 f_pos = request_dict[file_name]
@@ -90,19 +94,19 @@ def handle_client(sock, request_dict, client_addr):
 
             f.close()
 
-            ans = sock.recv(1024).decode('latin-1')
+            ans = Receive(sock, 1024).decode('latin-1')
             
             if ans == "OK":
                 os.chdir(cwd)
                 if data:
+                    data += b'<END>'
                     sock.send(data)
-                    print("SENT")
                 else:
-                    sock.send("<END>".encode('latin-1'))
+                    sock.send("<DONE><END>".encode('latin-1'))
 
-        except OSError:
+        except ValueError:
             print("[Client] from [%s:%s] disconnected" %client_addr)
-            break
+            break  
 
 Server_IP = "0.0.0.0"
 Server_Port = 9999
