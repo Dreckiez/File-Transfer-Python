@@ -1,6 +1,8 @@
 
 # File Transfer Program ![Python](https://forthebadge.com/images/badges/made-with-python.svg)
 
+![Demo](a.gif)
+
 This is a small project for the **Computer Networking** course i took. Its goal is to create a **Server-Client** program for file transfering with 2 parts, each part has different requirements:
 - **Part I**:
     - **Server**: Can only handle 1 Client at a time.
