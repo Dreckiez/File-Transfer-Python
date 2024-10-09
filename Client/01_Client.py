@@ -59,7 +59,7 @@ def receive_file(fileName, file_size):
 
     f = open(fileName, "wb")
 
-    while bytes_num < file_size:
+    while bytes_num < file_size+100:
         datachunk = Client.recv(1024)
         if datachunk[-5:] == b"<END>":
             datachunk = datachunk[:len(datachunk) - 5]
@@ -81,7 +81,7 @@ def receive_file(fileName, file_size):
 def Receive(sock, buffer):
     data = b''
     check_len = 0
-    while check_len < buffer:
+    while check_len < buffer+100:
         chunk = sock.recv(buffer)
         if chunk[-5:] == b"<END>":
             chunk = chunk[:len(chunk) - 5]
