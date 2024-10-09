@@ -56,7 +56,7 @@ def string_handle(line):
 def Receive(sock, buffer):
     data = b''
     check_len = 0
-    while check_len < buffer:
+    while check_len < buffer+100:
         chunk = sock.recv(buffer)
         if chunk[-5:] == b"<END>":
             chunk = chunk[:len(chunk) - 5]
